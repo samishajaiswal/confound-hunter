@@ -1,35 +1,99 @@
 """
-Proxy Confounder Detector (Placeholder).
+Proxy Confounder Detector
+-------------------------
 
-This detector will eventually use mutual information to identify
-features that act as proxies for other variables rather than providing
-independent predictive signal.
+Identifies proxy confounders by measuring correlation between
+candidate variables, treatment, and outcome.
 
-For Phase 2, it returns zero scores for all features.
+A proxy confounder typically correlates with both the treatment
+and the outcome, suggesting it may represent an unobserved factor.
+
+Author: Confound Hunter Project
 """
 
-from typing import Dict
+from typing import Dict, List
+
 import pandas as pd
+from scipy.stats import pearsonr
 
 
-def proxy_confounder(
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-) -> Dict[str, float]:
+class ProxyConfounderDetector:
     """
-    Placeholder implementation for proxy confounder detection.
+    Detect proxy confounders based on correlation structure.
 
-    Parameters
-    ----------
-    X_train : pd.DataFrame
-        Training feature matrix.
-    y_train : pd.Series
-        Training target vector.
-
-    Returns
-    -------
-    Dict[str, float]
-        Feature-to-score mapping (all zeros).
+    A variable is flagged if it significantly correlates with both
+    treatment and outcome.
     """
 
-    return {feature: 0.0 for feature in X_train.columns}
+    def __init__(
+        self,
+        corr_threshold: float = 0.3,
+        p_threshold: float = 0.05
+    ):
+        """
+        Initialize detector.
+
+        Parameters
+        ----------
+        corr_threshold : float
+            Minimum correlation magnitude required.
+        p_threshold : float
+            Statistical significance threshold.
+        """
+
+        self.corr_threshold = corr_threshold
+        self.p_threshold = p_threshold
+
+    def detect(
+        self,
+        df: pd.DataFrame,
+        treatment: str,
+        outcome: str,
+        candidate_vars: List[str]
+    ) -> Dict[str, Dict]:
+        """
+        Detect proxy confounders.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Input dataset.
+        treatment : str
+            Treatment variable.
+        outcome : str
+            Outcome variable.
+        candidate_vars : List[str]
+            Variables to evaluate.
+
+        Returns
+        -------
+        Dict[str, Dict]
+            Detection results.
+        """
+
+        results = {}
+
+        for var in candidate_vars:
+
+            # Correlation with treatment
+            corr_t, p_t = pearsonr(df[var], df[treatment])
+
+            # Correlation with outcome
+            corr_y, p_y = pearsonr(df[var], df[outcome])
+
+            is_proxy = (
+                abs(corr_t) > self.corr_threshold and
+                abs(corr_y) > self.corr_threshold and
+                p_t < self.p_threshold and
+                p_y < self.p_threshold
+            )
+
+            results[var] = {
+                "corr_with_treatment": corr_t,
+                "p_treatment": p_t,
+                "corr_with_outcome": corr_y,
+                "p_outcome": p_y,
+                "is_proxy_confounder": is_proxy
+            }
+
+        return results
