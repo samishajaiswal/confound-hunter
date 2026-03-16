@@ -182,11 +182,12 @@ class ConfounderAudit:
 
                 score = self.detector_scores.get(detector, {}).get(feature, 0.0)
 
+                score = max(0.0, min(1.0, score))
                 weighted_sum += score * weight
 
                 evidence[detector] = score
 
-            self.suspicion_scores[feature] = weighted_sum
+            self.suspicion_scores[feature] = round(weighted_sum, 4)
 
             self.evidence_trail[feature] = evidence
 
