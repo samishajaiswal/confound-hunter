@@ -372,13 +372,54 @@ class ConfoundInjector:
         self._register_feature(feature_name, "temporal_confounder")
 
         return feature_name
-    def inject_interaction_confounder(self) -> Tuple[str, str]:
+    def inject_interaction_confounder(
+        self,
+        noise_std: float = 0.1,
+        feature_names: tuple[str, str] = ("interaction_1", "interaction_2"),
+    ) -> tuple[str, str]:
         """
         Inject an interaction-based confounder.
 
+        Two features are generated such that their interaction (product)
+        correlates with the target, while each feature individually has
+        weak or no correlation.
+
+        Parameters
+        ----------
+        noise_std : float, default=0.1
+            Standard deviation of Gaussian noise.
+        feature_names : tuple[str, str]
+            Names of the two injected features.
+
         Returns
         -------
-        Tuple[str, str]
-            Names of the injected interaction features.
+        tuple[str, str]
+            Names of the injected features.
         """
-        raise NotImplementedError
+        f1, f2 = feature_names
+
+        if f1 in self.X.columns or f2 in self.X.columns:
+            raise ValueError("Interaction feature names already exist.")
+
+        n = len(self.X)
+
+        # Generate two independent random features
+        x1 = self.rng.normal(0, 1, n)
+        x2 = self.rng.normal(0, 1, n)
+
+        # Create interaction signal correlated with target
+        interaction_signal = (x1 * x2) + self.rng.normal(0, noise_std, n)
+
+        # Add weak dependence on target to make it realistic
+        y_values = self.y.to_numpy()
+        interaction_signal += 0.2 * y_values
+
+        # Store only the base features (not the interaction)
+        self.X[f1] = x1
+        self.X[f2] = x2
+
+        # Register both as interaction confounders
+        self._register_feature(f1, "interaction_confounder")
+        self._register_feature(f2, "interaction_confounder")
+
+        return f1, f2

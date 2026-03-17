@@ -18,6 +18,7 @@ injector.inject_leaky_feature()
 injector.inject_proxy_feature()
 injector.inject_clean_signal()
 injector.inject_temporal_confounder()
+injector.inject_interaction_confounder()
 # Retrieve dataset
 X_new, y_new = injector.get_dataset()
 
