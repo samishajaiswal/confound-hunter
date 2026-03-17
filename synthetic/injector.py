@@ -327,17 +327,51 @@ class ConfoundInjector:
 
         return feature_name
 
-    def inject_temporal_confounder(self) -> str:
+    def inject_temporal_confounder(
+        self,
+        noise_std: float = 0.1,
+        feature_name: str = "temporal_confounder",
+    ) -> str:
         """
-        Inject a time-dependent confounder.
+        Inject a temporal confounder feature.
+
+        This feature simulates a time-dependent trend that correlates
+        with the target due to shared temporal structure rather than
+        a causal relationship.
+
+        Parameters
+        ----------
+        noise_std : float, default=0.1
+            Standard deviation of Gaussian noise.
+        feature_name : str, default="temporal_confounder"
+            Name of injected feature.
 
         Returns
         -------
         str
             Name of injected feature.
         """
-        raise NotImplementedError
+        if feature_name in self.X.columns:
+            raise ValueError(f"Feature '{feature_name}' already exists.")
 
+        n = len(self.X)
+
+        # Create a synthetic time index (normalized)
+        time_index = np.arange(n) / n
+
+        noise = self.rng.normal(
+            loc=0.0,
+            scale=noise_std,
+            size=n,
+        )
+
+        temporal_feature = time_index + noise
+
+        self.X[feature_name] = temporal_feature
+
+        self._register_feature(feature_name, "temporal_confounder")
+
+        return feature_name
     def inject_interaction_confounder(self) -> Tuple[str, str]:
         """
         Inject an interaction-based confounder.
