@@ -135,86 +135,197 @@ class ConfoundInjector:
     # ---------------------------------------------------------
 
     def inject_spurious_correlation(
-    self,
-    noise_std: float = 0.2,
-    feature_name: str = "spurious_corr",
-) -> str:
-    """
-    Inject a spurious correlation feature.
+        self,
+        noise_std: float = 0.2,
+        feature_name: str = "spurious_corr",
+    ) -> str:
+        """
+        Inject a spurious correlation feature.
 
-    The feature is constructed as the target variable plus
-    Gaussian noise. It will appear highly predictive but
-    represents a non-causal relationship.
+        The feature is constructed as the target variable plus
+        Gaussian noise. It will appear highly predictive but
+        represents a non-causal relationship.
 
-    Parameters
-    ----------
-    noise_std : float, default=0.2
-        Standard deviation of Gaussian noise.
-    feature_name : str, default="spurious_corr"
-        Name of the injected feature.
+        Parameters
+        ----------
+        noise_std : float, default=0.2
+            Standard deviation of Gaussian noise.
+        feature_name : str, default="spurious_corr"
+            Name of the injected feature.
 
-    Returns
-    -------
-    str
-        Name of the injected feature.
-    """
+        Returns
+        -------
+        str
+            Name of the injected feature.
+        """
 
-    if feature_name in self.X.columns:
-        raise ValueError(f"Feature '{feature_name}' already exists.")
+        if feature_name in self.X.columns:
+            raise ValueError(f"Feature '{feature_name}' already exists.")
 
-    # Convert target to numeric array
-    y_values = self.y.to_numpy()
+        # Convert target to numeric array
+        y_values = self.y.to_numpy()
 
-    # Generate Gaussian noise
-    noise = self.rng.normal(
-        loc=0.0,
-        scale=noise_std,
-        size=len(self.X),
-    )
+        # Generate Gaussian noise
+        noise = self.rng.normal(
+            loc=0.0,
+            scale=noise_std,
+            size=len(self.X),
+        )
 
-    # Create spurious feature
-    spurious_feature = y_values + noise
+        # Create spurious feature
+        spurious_feature = y_values + noise
 
-    # Insert into feature matrix
-    self.X[feature_name] = spurious_feature
+        # Insert into feature matrix
+        self.X[feature_name] = spurious_feature
 
-    # Register ground truth
-    self._register_feature(feature_name, "spurious_correlation")
+        # Register ground truth
+        self._register_feature(feature_name, "spurious_correlation")
 
-    return feature_name
+        return feature_name
 
-    def inject_leaky_feature(self) -> str:
+    def inject_leaky_feature(
+        self,
+        leak_fraction: float = 0.9,
+        noise_std: float = 0.05,
+        feature_name: str = "leaky_feature",
+    ) -> str:
         """
         Inject a target leakage feature.
 
+        The feature is partially derived from the target variable,
+        simulating common data leakage scenarios such as post-event
+        features or improperly constructed aggregates.
+
+        Parameters
+        ----------
+        leak_fraction : float, default=0.9
+            Fraction of target information leaked into the feature.
+        noise_std : float, default=0.05
+            Standard deviation of Gaussian noise.
+        feature_name : str, default="leaky_feature"
+            Name of injected feature.
+
         Returns
         -------
         str
-            Name of injected feature.
+            Name of the injected feature.
         """
-        raise NotImplementedError
 
-    def inject_proxy_feature(self) -> str:
+        if feature_name in self.X.columns:
+            raise ValueError(f"Feature '{feature_name}' already exists.")
+
+        y_values = self.y.to_numpy()
+
+        noise = self.rng.normal(
+            loc=0.0,
+            scale=noise_std,
+            size=len(self.X),
+        )
+
+        # Create leakage feature
+        leak_feature = (y_values * leak_fraction) + noise
+
+        # Add to dataset
+        self.X[feature_name] = leak_feature
+
+        # Register ground truth
+        self._register_feature(feature_name, "leaky_feature")
+
+        return feature_name
+
+    def inject_proxy_feature(
+        self,
+        noise_std: float = 0.05,
+        feature_name: str = "proxy_feature",
+    ) -> str:
         """
         Inject a proxy confounder feature.
 
+        A proxy feature is created by cloning an existing feature
+        and adding small Gaussian noise. This simulates variables
+        that appear predictive only because they mirror another
+        variable in the dataset.
+
+        Parameters
+        ----------
+        noise_std : float, default=0.05
+            Standard deviation of Gaussian noise to add.
+        feature_name : str, default="proxy_feature"
+            Name of the injected proxy feature.
+
+        Returns
+        -------
+        str
+            Name of the injected feature.
+        """
+        if feature_name in self.X.columns:
+            raise ValueError(f"Feature '{feature_name}' already exists.")
+
+        # Randomly choose an existing feature to clone
+        source_feature = self.rng.choice(self.X.columns)
+        source_values = self.X[source_feature].to_numpy()
+
+        noise = self.rng.normal(
+            loc=0.0,
+            scale=noise_std,
+            size=len(self.X),
+        )
+
+        proxy_feature = source_values + noise
+
+        # Insert into dataset
+        self.X[feature_name] = proxy_feature
+
+        # Register ground truth
+        self._register_feature(feature_name, "proxy_confounder")
+        return feature_name
+
+    def inject_clean_signal(
+        self,
+        signal_strength: float = 0.5,
+        noise_std: float = 0.2,
+        feature_name: str = "clean_signal",
+    ) -> str:
+        """
+        Inject a genuine predictive feature (clean signal).
+
+        This feature is partially correlated with the target variable,
+        representing a legitimate signal that SHOULD NOT be flagged
+        as a confounder.
+
+        Parameters
+        ----------
+        signal_strength : float, default=0.5
+            Strength of correlation with target.
+        noise_std : float, default=0.2
+            Standard deviation of Gaussian noise.
+        feature_name : str, default="clean_signal"
+            Name of injected feature.
+
         Returns
         -------
         str
             Name of injected feature.
         """
-        raise NotImplementedError
+        if feature_name in self.X.columns:
+            raise ValueError(f"Feature '{feature_name}' already exists.")
 
-    def inject_clean_signal(self) -> str:
-        """
-        Inject a genuine predictive signal (control feature).
+        y_values = self.y.to_numpy()
 
-        Returns
-        -------
-        str
-            Name of injected feature.
-        """
-        raise NotImplementedError
+        noise = self.rng.normal(
+            loc=0.0,
+            scale=noise_std,
+            size=len(self.X),
+        )
+
+        clean_feature = (signal_strength * y_values) + noise
+
+        self.X[feature_name] = clean_feature
+
+        # IMPORTANT: This is NOT a confounder
+        self._register_feature(feature_name, "clean_signal")
+
+        return feature_name
 
     def inject_temporal_confounder(self) -> str:
         """
